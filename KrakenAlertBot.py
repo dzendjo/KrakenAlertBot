@@ -1,6 +1,6 @@
 import requests
 from sqlalchemy import create_engine
-from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
@@ -52,6 +52,7 @@ class Order(Base):
 
 
 class KrakenAlertBot:
+
     def __init__(self):
         db_engine = create_engine('sqlite:///db.sqlite', echo=True)
         self.session = sessionmaker(bind=db_engine)()
