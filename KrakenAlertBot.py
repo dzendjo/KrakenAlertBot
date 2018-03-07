@@ -67,8 +67,8 @@ class KrakenAlertBot:
         self.session = sessionmaker(bind=db_engine)()
         self.pairs_json = dict(json.load(open('pairs.json')))
         self.kraken_prices = self.get_prices_dict_ones()
-        # self.thread_get_actually_prices = threading.Thread(target=self.get_prices_dict)
-        # self.thread_get_actually_prices.start()
+        self.thread_get_actually_prices = threading.Thread(target=self.get_prices_dict)
+        self.thread_get_actually_prices.start()
 
     def compareison_higher_prices(self):
         result_higher_prices_dict = {}
@@ -76,16 +76,29 @@ class KrakenAlertBot:
         for key in self.pairs_json:
             match_orders_list = []
             current_price = float(self.kraken_prices[key])
-            #  = []
             query = self.session.query(Order).\
                 filter(Order.pair_name == key, Order.condition == '>', Order.price < current_price)
             for line in query:
                 match_orders_list.append({
+                    'order_id': line.id,
                     'chat_id': line.user.telegram_id,
                     'order_price': line.price,
-                    'current_price': current_price
+                    'current_price': current_price,
+                    'condition': line.condition
+                })
+
+            query = self.session.query(Order). \
+                filter(Order.pair_name == key, Order.condition == '<', Order.price > current_price)
+            for line in query:
+                match_orders_list.append({
+                    'order_id': line.id,
+                    'chat_id': line.user.telegram_id,
+                    'order_price': line.price,
+                    'current_price': current_price,
+                    'condition': line.condition
                 })
             result_higher_prices_dict[key] = match_orders_list
+            self.session.commit()
         return result_higher_prices_dict
 
     def get_prices_dict_ones(self):
@@ -111,7 +124,7 @@ class KrakenAlertBot:
                 time.sleep(10)
             except Exception:
                 print(sys.exc_info()[1])
-                time.sleep(10)
+                time.sleep(20)
 
     def put_to_db(self, entity):
         class_name = type(entity).__name__
@@ -143,6 +156,11 @@ class KrakenAlertBot:
         class_name = type(entity).__name__
         self.session.query(class_name).filter_by(id=entity.id).delete
         self.session.commit()
+
+    def del_order_from_db(self, entity_id):
+        self.session.query(Order).filter_by(id=entity_id).delete()
+        self.session.commit()
+        print('Ордер {} удалился из базы'.format(entity_id))
 
     def get_current_rate(self, pair):
         try:

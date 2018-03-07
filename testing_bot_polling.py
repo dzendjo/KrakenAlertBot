@@ -4,6 +4,8 @@ import sys
 import telebot
 from KrakenAlertBot import User, Order, KrakenAlertBot
 import time
+from datetime import datetime
+import threading
 
 API_TOKEN = '560993839:AAGNESgMvLryZaU7YX-DqQPW2FFoYQSRTJI'
 
@@ -93,11 +95,36 @@ def echo_message(message):
 Я оповещу вас, когда цена пары {} будет {} цены {}
 '''.format(pair, condition, price))
 
+def get_word_by_condition(condition):
+    if condition == '>':
+        return 'превысил'
+    else:
+        return 'опустился ниже'
+
+def send_ready_orders():
+    while 1:
+        orders_dict = engine.compareison_higher_prices()
+        for key in orders_dict:
+            for order in orders_dict[key]:
+                print(order)
+                time_now = datetime.strftime(datetime.now(), "%H:%M:%S")
+                bot.send_message(order['chat_id'], '''
+Внимание! 
+Курс {} в {} {} {}.
+Это сообщение вам отправлено при курсе {}
+'''.format(key, time_now, get_word_by_condition(order['condition']), order['order_price'], order['current_price']))
+
+                engine.del_order_from_db(order['order_id'])
+        time.sleep(10)
+
 
 if __name__ == '__main__':
+    send_ready_orders_thread = threading.Thread(target=send_ready_orders)
+    send_ready_orders_thread.start()
     while 1:
         try:
             bot.polling()
+            
         except Exception:
             print(sys.exc_info()[1])
             time.sleep(15)
