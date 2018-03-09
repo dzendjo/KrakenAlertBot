@@ -3,6 +3,7 @@ import json
 import threading
 import sys
 import time
+import re
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -22,20 +23,6 @@ class User(Base):
 
     def __repr__(self):
         return '{} - {}'.format(self.id, self.telegram_id)
-
-
-# class Pair(Base):
-#     __tablename__ = 'pairs'
-#     id = Column(Integer, primary_key=True)
-#     pair_kraken_get = Column(String)
-#     pair_kraken_dict = Column(String)
-#
-#     def __init__(self, pair_kraken_get, pair_kraken_dict):
-#         self.pair_kraken_get = pair_kraken_get
-#         self.pair_kraken_dict = pair_kraken_dict
-#
-#     def __repr__(self):
-#         return '{} - {}'.format(self.id, self.pair_kraken_get, self.pair_kraken_dict)
 
 
 class Order(Base):
@@ -68,7 +55,7 @@ class KrakenAlertBot:
         self.pairs_list_string = self.get_pair_list_string()
         self.kraken_prices = self.get_prices_dict_ones()
         self.thread_get_actually_prices = threading.Thread(target=self.get_prices_dict)
-        self.thread_get_actually_prices.start()
+        # self.thread_get_actually_prices.start()
 
     def get_pair_list_string(self):
         i = 0
@@ -86,7 +73,6 @@ class KrakenAlertBot:
             current_price = float(self.kraken_prices[key])
             query = self.session.query(Order).\
                 filter(Order.pair_name == key, Order.condition == '>', Order.price < current_price)
-            # self.session.commit()
             for line in query:
                 match_orders_list.append({
                     'order_id': line.id,
@@ -95,7 +81,6 @@ class KrakenAlertBot:
                     'current_price': current_price,
                     'condition': line.condition
                 })
-
 
             query = self.session.query(Order). \
                 filter(Order.pair_name == key, Order.condition == '<', Order.price > current_price)
@@ -183,12 +168,30 @@ class KrakenAlertBot:
         except Exception:
             return 'Ошибка при подключении к кракену: {}'.format(sys.exc_info()[1])
 
+    def check_expression(self, expression):
+        normalized_expretion = str(expression).replace(' ', '').replace(',', '.').upper()
+        print(normalized_expretion)
 
-# if __name__ == '__main__':
-#     krakenbot = KrakenAlertBot()
-#     # while 1:
-#     #     print(krakenbot.kraken_prices)
-#     #     time.sleep(5)
-#     print(krakenbot.compareison_higher_prices())
+        pair = re.findall(r'|'.join(self.pairs_json.keys()), normalized_expretion)
+        condition = re.findall(r'[<,>]', normalized_expretion)
+        price = re.findall(r'[>,<]\s*(\d+.?\d*)', normalized_expretion)
 
+        if not pair:
+            return "Cann't find pair name"
+        elif not condition:
+            return "Cann't find condition ('>' or '<')"
+        elif not price:
+            return "Cann't find price"
 
+        return (pair[0], condition[0], float(price[0]))
+
+if __name__ == '__main__':
+    krakenbot = KrakenAlertBot()
+    s1 = 'XBTUSD < 11000.00'
+    s2 = 'USDTUSD < 1.0001'
+    s3 = 'XBTUSD>12000.00'
+    s4 = 'xbtusd<9009.00'
+
+    test_list = [s1, s2, s3, s4]
+    for s in test_list:
+        print(krakenbot.check_expression(s))

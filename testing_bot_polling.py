@@ -33,7 +33,7 @@ def send_start(message):
 /help - список команд и правила ввода заявок
 /add - добавить заявку на отслеживание курса криптопары
 /all - список всех ваших заявок
-/pair_list - список всех доступных пар
+/pairs - список всех доступных пар
 """, reply_markup=markup)
 
 
@@ -80,38 +80,18 @@ def send_all(message):
 # Handle all other messages with content_type 'text' (content_types defaults to ['text'])
 @bot.message_handler(func=lambda message: True)
 def echo_message(message):
-    command = str(message.text).replace(' ', '')
-    is_ok = False
-    try:
-        pair = command[0:6]
-        condition = command[6:7]
-        price = float(command[7:].replace(',', '.'))
-        is_ok = True
-    except ValueError:
-        bot.send_message(message.chat.id, 'Не могу сконвертировать в цифру выражение "{}"'.format(command[7:]))
-    except Exception:
-        print(sys.exc_info())
-        bot.send_message(message.chat.id, 'Команда не распознана')
-
-
-    if pair not in engine.pairs_json.keys():
-        bot.send_message(message.chat.id, 'Не могу найти пару "{}"'.format(pair))
-        is_ok = False
-
-    if condition not in ['<', '>']:
-        bot.send_message(message.chat.id, 'Не понятное условие "{}"'.format(condition))
-        is_ok = False
-
-    if is_ok:
-        current_pair = pair
+    try_command = engine.check_expression(message.text)
+    if isinstance(try_command, tuple):
+        current_pair = try_command[0]
+        current_condition = try_command[1]
+        current_price = try_command[2]
         current_user = engine.get_user_from_db(message.chat.id)
-        order = Order(current_pair, condition, price, current_user)
+        order = Order(current_pair, current_condition, current_price, current_user)
         engine.put_to_db(order)
 
-        bot.send_message(message.chat.id, '''
-Поздравляю, заявка успешно добавлена!
-Я оповещу вас, когда цена пары {} будет {} цены {}
-'''.format(pair, condition, price))
+        bot.send_message(message.chat.id, 'Order has added successfully!')
+    else:
+        bot.send_message(message.chat.id, try_command)
 
 def get_word_by_condition(condition):
     if condition == '>':
