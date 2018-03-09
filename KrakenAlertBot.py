@@ -3,7 +3,6 @@ import json
 import threading
 import sys
 import time
-from kraken_request_prices import KrakenPrices
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -66,9 +65,18 @@ class KrakenAlertBot:
         db_engine = create_engine('sqlite:///db.sqlite') #,echo=True)
         self.session = sessionmaker(bind=db_engine)()
         self.pairs_json = dict(json.load(open('pairs.json')))
+        self.pairs_list_string = self.get_pair_list_string()
         self.kraken_prices = self.get_prices_dict_ones()
         self.thread_get_actually_prices = threading.Thread(target=self.get_prices_dict)
         self.thread_get_actually_prices.start()
+
+    def get_pair_list_string(self):
+        i = 0
+        list_pairs_string = ''
+        for pair in self.pairs_json.keys():
+            i += 1
+            list_pairs_string += '{} - {}\n'.format(i, pair)
+        return list_pairs_string
 
     def compareison_higher_prices(self):
         result_higher_prices_dict = {}
@@ -78,6 +86,7 @@ class KrakenAlertBot:
             current_price = float(self.kraken_prices[key])
             query = self.session.query(Order).\
                 filter(Order.pair_name == key, Order.condition == '>', Order.price < current_price)
+            # self.session.commit()
             for line in query:
                 match_orders_list.append({
                     'order_id': line.id,
@@ -86,6 +95,7 @@ class KrakenAlertBot:
                     'current_price': current_price,
                     'condition': line.condition
                 })
+
 
             query = self.session.query(Order). \
                 filter(Order.pair_name == key, Order.condition == '<', Order.price > current_price)
@@ -131,14 +141,17 @@ class KrakenAlertBot:
 
         if class_name == 'User':
             if self.session.query(User.telegram_id).filter_by(telegram_id=entity.telegram_id).first():
-                return 1
+                self.session.commit()
+                return 0
 
         self.session.add(entity)
         self.session.commit()
-        return 1
+        return 0
 
     def get_user_from_db(self, chat_id):
-        return self.session.query(User).filter_by(telegram_id=chat_id).first()
+        user = self.session.query(User).filter_by(telegram_id=chat_id).first()
+        self.session.commit()
+        return user
 
     def get_orders_from_db(self, telegram_id):
         list_of_orders = []
@@ -170,15 +183,12 @@ class KrakenAlertBot:
         except Exception:
             return 'Ошибка при подключении к кракену: {}'.format(sys.exc_info()[1])
 
-    def get_my_all_bids(self):
-        pass
 
-
-if __name__ == '__main__':
-    krakenbot = KrakenAlertBot()
-    # while 1:
-    #     print(krakenbot.kraken_prices)
-    #     time.sleep(5)
-    print(krakenbot.compareison_higher_prices())
+# if __name__ == '__main__':
+#     krakenbot = KrakenAlertBot()
+#     # while 1:
+#     #     print(krakenbot.kraken_prices)
+#     #     time.sleep(5)
+#     print(krakenbot.compareison_higher_prices())
 
 

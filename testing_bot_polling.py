@@ -2,6 +2,8 @@
 # # It echoes any incoming text messages.
 import sys
 import telebot
+from telebot import types
+
 from KrakenAlertBot import User, Order, KrakenAlertBot
 import time
 from datetime import datetime
@@ -11,6 +13,13 @@ API_TOKEN = '560993839:AAGNESgMvLryZaU7YX-DqQPW2FFoYQSRTJI'
 
 bot = telebot.TeleBot(API_TOKEN)
 engine = KrakenAlertBot()
+
+markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+add_btn = types.KeyboardButton('/add')
+all_btn = types.KeyboardButton('/all')
+help_btn = types.KeyboardButton('/help')
+pairs_list_btn = types.KeyboardButton('/pairs')
+markup.add(add_btn, all_btn, help_btn, pairs_list_btn)
 
 
 @bot.message_handler(commands=['start'])
@@ -25,7 +34,7 @@ def send_start(message):
 /add - добавить заявку на отслеживание курса криптопары
 /all - список всех ваших заявок
 /pair_list - список всех доступных пар
-""")
+""", reply_markup=markup)
 
 
 @bot.message_handler(commands=['add'])
@@ -41,20 +50,27 @@ def send_add(message):
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
-    bot.send_message(message, """\
-Список моих команд:
-/add - добавить заявку на отслеживание курса определенной пары
-/all - список всех моих заявок
+    bot.send_message(message.chat.id, """
+List of commands:
+/add - Add tracing order
+/all - List of all your tracing orders
+/pairs - List of available crypto pairs
+/help - list of commands and rules of adding orders
 
-Как ставить заявку:
-1. Напишите /add
-2. Выберите пару
-3. Напишите условия отслеживания: < число, > число, = число
+How to make an order:
+1. Choose a pair for tracing from /pairs list
+2. Type /add command
+3. Type pair name, order condition and price
 
-Например:
-1. /add
-2.
+For example: XBTUSD > 10000, USDTUSD < 1.01 
 """)
+
+@bot.message_handler(commands=['pairs'])
+def send_help(message):
+    bot.send_message(message.chat.id, """
+Доступные пары:
+{}
+""".format(engine.pairs_list_string))
 
 @bot.message_handler(commands=['all'])
 def send_all(message):
@@ -80,9 +96,11 @@ def echo_message(message):
 
     if pair not in engine.pairs_json.keys():
         bot.send_message(message.chat.id, 'Не могу найти пару "{}"'.format(pair))
+        is_ok = False
 
     if condition not in ['<', '>']:
         bot.send_message(message.chat.id, 'Не понятное условие "{}"'.format(condition))
+        is_ok = False
 
     if is_ok:
         current_pair = pair
