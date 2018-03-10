@@ -55,7 +55,7 @@ class KrakenAlertBot:
         self.pairs_list_string = self.get_pair_list_string()
         self.kraken_prices = self.get_prices_dict_ones()
         self.thread_get_actually_prices = threading.Thread(target=self.get_prices_dict)
-        # self.thread_get_actually_prices.start()
+        self.thread_get_actually_prices.start()
 
     def get_pair_list_string(self):
         i = 0
@@ -185,13 +185,3 @@ class KrakenAlertBot:
 
         return (pair[0], condition[0], float(price[0]))
 
-if __name__ == '__main__':
-    krakenbot = KrakenAlertBot()
-    s1 = 'XBTUSD < 11000.00'
-    s2 = 'USDTUSD < 1.0001'
-    s3 = 'XBTUSD>12000.00'
-    s4 = 'xbtusd<9009.00'
-
-    test_list = [s1, s2, s3, s4]
-    for s in test_list:
-        print(krakenbot.check_expression(s))
