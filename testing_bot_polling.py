@@ -1,5 +1,4 @@
-# # This is a simple echo bot using the decorator mechanism.
-# # It echoes any incoming text messages.
+
 import sys
 import telebot
 from telebot import types
@@ -27,13 +26,12 @@ def send_start(message):
     user = User(message.chat.id)
     engine.put_to_db(user)
     bot.send_message(message.chat.id, """\
-Приветствую! Буду отслеживать ваши заявки на Kraken.
-Для начала ознакомьтесь со списком моих команд:
+Greetings! I will track your orders on Kraken. Here is my commands:
 
-/help - список команд и правила ввода заявок
-/add - добавить заявку на отслеживание курса криптопары
-/all - список всех ваших заявок
-/pairs - список всех доступных пар
+/add - Add new tracing order
+/all - Shows all your tracings
+/pairs - List all all available crypto pairs
+/help - Just simple help
 """, reply_markup=markup)
 
 
@@ -41,24 +39,42 @@ def send_start(message):
 def send_add(message):
     user = User(message.chat.id)
     engine.put_to_db(user)
-    bot.send_message(message.chat.id, """\
-Введите заявку в таком формате:
-{Пара} {Условие: < или >} {Цена}
-Пример: XBTUSD > 12300
+    msg = bot.send_message(message.chat.id, """
+Input here your pair name, condition ('>' or '<') and price
+For example: XBTUSD > 10000, USDTUSD < 1.01
+List of supported crypto pairs you can get with command /pairs
 """)
+    # bot.register_next_step_handler(msg, input_tracking_order)
+
+# def input_tracking_order(message):
+#     if message.text == '/pairs':
+#         send_pairs(message)
+#     else:
+#         try_command = engine.check_expression(message.text)
+#         if isinstance(try_command, tuple):
+#             current_pair = try_command[0]
+#             current_condition = try_command[1]
+#             current_price = try_command[2]
+#             current_user = engine.get_user_from_db(message.chat.id)
+#             order = Order(current_pair, current_condition, current_price, current_user)
+#             engine.put_to_db(order)
+#
+#             bot.send_message(message.chat.id, 'Order has added successfully!')
+#         else:
+#             bot.send_message(message.chat.id, try_command)
 
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
     bot.send_message(message.chat.id, """
 List of commands:
-/add - Add tracing order
-/all - List of all your tracing orders
+/add - Add order for tracking
+/all - List of all your tracking orders
 /pairs - List of available crypto pairs
-/help - list of commands and rules of adding orders
+/help - List of commands and rules of adding orders
 
 How to make an order:
-1. Choose a pair for tracing from /pairs list
+1. Choose a pair for tracking from /pairs list
 2. Type /add command
 3. Type pair name, order condition and price
 
@@ -66,16 +82,16 @@ For example: XBTUSD > 10000, USDTUSD < 1.01
 """)
 
 @bot.message_handler(commands=['pairs'])
-def send_help(message):
+def send_pairs(message):
     bot.send_message(message.chat.id, """
-Доступные пары:
+Available pairs:
 {}
 """.format(engine.pairs_list_string))
 
 @bot.message_handler(commands=['all'])
 def send_all(message):
     list_of_orders = engine.get_orders_from_db(message.chat.id)
-    bot.send_message(message.chat.id, 'Я слежу за вашими заявками:\n' + '\n'.join(list_of_orders))
+    bot.send_message(message.chat.id, "I'm tracking your orders:\n" + "\n".join(list_of_orders))
 
 # Handle all other messages with content_type 'text' (content_types defaults to ['text'])
 @bot.message_handler(func=lambda message: True)
@@ -95,9 +111,9 @@ def echo_message(message):
 
 def get_word_by_condition(condition):
     if condition == '>':
-        return 'превысил'
+        return 'became more'
     else:
-        return 'опустился ниже'
+        return 'became less'
 
 def send_ready_orders():
     while 1:
@@ -107,9 +123,9 @@ def send_ready_orders():
                 print(order)
                 time_now = datetime.strftime(datetime.now(), "%H:%M:%S")
                 bot.send_message(order['chat_id'], '''
-Внимание! 
-Курс {} в {} {} {}.
-Это сообщение вам отправлено при курсе {}
+Attention! 
+Rate {} in {} (GMT +0) {} {}.
+This message was sent when rate is {}
 '''.format(key, time_now, get_word_by_condition(order['condition']), order['order_price'], order['current_price']))
 
                 engine.del_order_from_db(order['order_id'])
