@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 import threading
 import config
+import sys
 
 API_TOKEN = config.token
 
