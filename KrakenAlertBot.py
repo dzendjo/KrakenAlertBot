@@ -58,11 +58,9 @@ class KrakenAlertBot:
         self.thread_get_actually_prices.start()
 
     def get_pair_list_string(self):
-        i = 0
         list_pairs_string = ''
         for pair in self.pairs_json.keys():
-            i += 1
-            list_pairs_string += '{} - {}\n'.format(i, pair)
+            list_pairs_string += '-{}\n'.format(pair)
         return list_pairs_string
 
     def compareison_higher_prices(self):
@@ -144,7 +142,7 @@ class KrakenAlertBot:
         all_orders = self.session.query(Order).filter_by(user=user).all()
 
         for order in all_orders:
-            order_as_string = '{} {} {}'.format(order.pair_name, order.condition, order.price)
+            order_as_string = '{}: {} {} {}'.format(order.id, order.pair_name, order.condition, order.price)
             list_of_orders.append(order_as_string)
 
         self.session.commit()
@@ -156,17 +154,47 @@ class KrakenAlertBot:
         self.session.commit()
 
     def del_order_from_db(self, entity_id):
-        self.session.query(Order).filter_by(id=entity_id).delete()
-        self.session.commit()
-        print('Ордер {} удалился из базы'.format(entity_id))
-
-    def get_current_rate(self, pair):
+        lock = threading.RLock()
+        lock.acquire()
         try:
-            request = requests.get('https://api.kraken.com/0/public/Ticker?pair={}'.format(pair))
-            price = request.json()['result']['USDTZUSD']['c'][0]
-            return price
-        except Exception:
-            return 'Ошибка при подключении к кракену: {}'.format(sys.exc_info()[1])
+            flag = self.session.query(Order).filter_by(id=entity_id).delete()
+            self.session.commit()
+        finally:
+            lock.release()
+        if flag:
+            print('Order {} deleted form db'.format(entity_id))
+        else:
+            print('Order {} NOT deleted from db, return code is - {}'.format(entity_id, flag))
+        return flag
+
+
+    def del_order_from_db_with_chatid(self, entity_id, chat_id):
+        lock = threading.RLock()
+        lock.acquire()
+        try:
+            flag = self.session.query(Order).filter_by(id=entity_id, user_id=self.get_user_from_db(chat_id).id).delete()
+            self.session.commit()
+        finally:
+            lock.release()
+
+        if flag:
+            print('Order {} deleted form db'.format(entity_id))
+        else:
+            print('Order {} NOT deleted from db, return code is - {}'.format(entity_id, flag))
+        return flag
+
+
+    def get_price_by_currency(self, currency):
+        formated_currency = currency.upper()
+        header_string = 'Current prices for {}:\n'.format(formated_currency)
+        prices_string = ''
+        for pair in self.pairs_json.keys():
+            if formated_currency in pair[:3] or formated_currency in pair[:4]:
+                prices_string += '{} - {}\n'.format(pair, self.kraken_prices[pair])
+        if prices_string:
+            return header_string + prices_string
+        else:
+            return "Cann't find this crypto currency name :("
 
     def check_expression(self, expression):
         normalized_expretion = str(expression).replace(' ', '').replace(',', '.').upper()
