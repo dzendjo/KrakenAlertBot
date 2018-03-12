@@ -33,7 +33,6 @@ class Order(Base):
     price = Column(Integer)
     user_id = Column(Integer, ForeignKey("users.id"))
 
-    # pair = relationship("Pair", foreign_keys=[pair_id])
     user = relationship("User", foreign_keys=[user_id])
 
     def __init__(self, pair_name, condition, price, user):
@@ -154,19 +153,6 @@ class KrakenAlertBot:
         self.session.commit()
 
     def del_order_from_db(self, entity_id):
-<<<<<<< HEAD
-        self.session.query(Order).filter_by(id=entity_id).delete()
-        self.session.commit()
-        print('order {} has been deleted from base'.format(entity_id))
-
-    def get_current_rate(self, pair):
-        try:
-            request = requests.get('https://api.kraken.com/0/public/Ticker?pair={}'.format(pair))
-            price = request.json()['result']['USDTZUSD']['c'][0]
-            return price
-        except Exception:
-            return 'Error connection to Kraken: {}'.format(sys.exc_info()[1])
-=======
         lock = threading.RLock()
         lock.acquire()
         try:
@@ -208,7 +194,6 @@ class KrakenAlertBot:
             return header_string + prices_string
         else:
             return "Cann't find this crypto currency name :("
->>>>>>> 39e1781b37c2b858ccf12e3db087cc2387504595
 
     def check_expression(self, expression):
         normalized_expretion = str(expression).replace(' ', '').replace(',', '.').upper()
