@@ -1,5 +1,4 @@
-__pycache__
+/__pycache__
 config.py
 testing_bot_polling.py
-.idea
-workspace.xml
+/.idea
